@@ -1,0 +1,12 @@
+$$ A callable script to multiply terms given a start number and ending number
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : ImageBase DataDirectoryIndex
+$$ Uses      : t1, t2
+$$ Returns   : t0
+
+.for (r $t0=1, $t1=${$arg1}, $t2=${$arg2}; @$t1 <= @$t2; r $t1 = @$t1 + 1)
+{
+	r $t0 = @$t0 * @$t1;
+}

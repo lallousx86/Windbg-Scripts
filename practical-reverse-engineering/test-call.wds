@@ -1,0 +1,6 @@
+r $t1 = 0x123;
+r $t2 = 0x456;
+
+.printf "Before calling sigma: t1=%x, t2=%x\n", @$t1, @$t2
+@call #sigma 1 3
+.printf "After calling sigma: the result is t0=%x, t1=%x, t2=%x\n", @$t0, @$t1, @$t2

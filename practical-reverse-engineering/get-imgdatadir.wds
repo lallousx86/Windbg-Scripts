@@ -1,0 +1,53 @@
+$$ A script that returns an image data directory by its index
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : ImageBase DataDirectoryIndex
+$$ Uses      : t0
+$$ Returns   : t0
+$$             t0 is the VA of the data directory or -1 on failure
+$$             @0 is the RVA and @4 is the vsize
+
+.catch
+{
+    $$ Set fail value by default
+    r $t0 = -1;
+
+    $$ Validate arguments
+    .if ${/d:$arg1} == 0 or ${/d:$arg2} == 0
+    {
+        .printf "Usage: get-imgdatadir.wds ImgBase DataDirIndex\n";
+        .leave;
+    }
+
+    $$ Assign the image base to t0
+    r $t0 = ${$arg1};
+
+    $$ Validate the DOS header
+    .if ($vvalid(@$t0, 1) == 0) or (wo(@$t0) != 0x5A4D)
+    {
+        .printf "The specified image is invalid\n";
+        .leave;
+    }
+
+    $$ Get pointer to NT headers
+    $$ IMAGE_DOS_HEADER    +0x03c e_lfanew         : Int4B
+    r $t0 = poi(@$t0 + 0x3C) + @$t0;
+
+    $$ 0:000> dt -r IMAGE_NT_HEADERS
+    $$    +0x000 Signature        : Uint4B
+    $$    +0x018 OptionalHeader   : _IMAGE_OPTIONAL_HEADER
+    $$       +0x060 DataDirectory    : [16] _IMAGE_DATA_DIRECTORY
+    $$          +0x000 VirtualAddress   : Uint4B
+    $$          +0x004 Size             : Uint4B
+
+    $$ Validate the PE header
+    .if ($vvalid(@$t0, 1) == 0) or (wo(@$t0) != 0x4550)
+    {
+        .printf "The specified image is invalid\n";
+        .leave;
+    }
+
+    $$ Return the VA to the desired data directory
+    r $t0 = @$t0 + 0x18 + 0x60 + (${$arg2} * 8);
+}

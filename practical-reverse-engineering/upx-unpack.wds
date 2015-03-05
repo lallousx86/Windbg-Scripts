@@ -1,0 +1,165 @@
+$$ A sample script that encodes a tracing logic that unpacks UPX or other basic packers
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : None
+$$ Uses      : t0 .. t9
+$$ Returns   : Displays result
+
+$$ 0:000> dt IMAGE_DOS_HEADER
+$$    +0x000 e_magic          : Uint2B
+$$    +0x002 e_cblp           : Uint2B
+$$    +0x004 e_cp             : Uint2B
+$$    +0x006 e_crlc           : Uint2B
+$$    +0x008 e_cparhdr        : Uint2B
+$$    +0x00a e_minalloc       : Uint2B
+$$    +0x00c e_maxalloc       : Uint2B
+$$    +0x00e e_ss             : Uint2B
+$$    +0x010 e_sp             : Uint2B
+$$    +0x012 e_csum           : Uint2B
+$$    +0x014 e_ip             : Uint2B
+$$    +0x016 e_cs             : Uint2B
+$$    +0x018 e_lfarlc         : Uint2B
+$$    +0x01a e_ovno           : Uint2B
+$$    +0x01c e_res            : [4] Uint2B
+$$    +0x024 e_oemid          : Uint2B
+$$    +0x026 e_oeminfo        : Uint2B
+$$    +0x028 e_res2           : [10] Uint2B
+$$    +0x03c e_lfanew         : Int4B
+
+$$ 0:000> dt -r IMAGE_NT_HEADERS
+$$    +0x000 Signature        : Uint4B
+$$    +0x004 FileHeader       : _IMAGE_FILE_HEADER
+$$       +0x000 Machine          : Uint2B
+$$       +0x002 NumberOfSections : Uint2B
+$$       +0x004 TimeDateStamp    : Uint4B
+$$       +0x008 PointerToSymbolTable : Uint4B
+$$       +0x00c NumberOfSymbols  : Uint4B
+$$       +0x010 SizeOfOptionalHeader : Uint2B
+$$       +0x012 Characteristics  : Uint2B
+$$    +0x018 OptionalHeader   : _IMAGE_OPTIONAL_HEADER
+$$       +0x000 Magic            : Uint2B
+$$       +0x002 MajorLinkerVersion : UChar
+$$       +0x003 MinorLinkerVersion : UChar
+$$       +0x004 SizeOfCode       : Uint4B
+$$       +0x008 SizeOfInitializedData : Uint4B
+$$       +0x00c SizeOfUninitializedData : Uint4B
+$$       +0x010 AddressOfEntryPoint : Uint4B
+$$       +0x014 BaseOfCode       : Uint4B
+$$       +0x018 BaseOfData       : Uint4B
+$$       +0x01c ImageBase        : Uint4B
+$$       +0x020 SectionAlignment : Uint4B
+$$       +0x024 FileAlignment    : Uint4B
+$$       +0x028 MajorOperatingSystemVersion : Uint2B
+$$       +0x02a MinorOperatingSystemVersion : Uint2B
+$$       +0x02c MajorImageVersion : Uint2B
+$$       +0x02e MinorImageVersion : Uint2B
+$$       +0x030 MajorSubsystemVersion : Uint2B
+$$       +0x032 MinorSubsystemVersion : Uint2B
+$$       +0x034 Win32VersionValue : Uint4B
+$$       +0x038 SizeOfImage      : Uint4B
+$$       +0x03c SizeOfHeaders    : Uint4B
+$$       +0x040 CheckSum         : Uint4B
+$$       +0x044 Subsystem        : Uint2B
+$$       +0x046 DllCharacteristics : Uint2B
+$$       +0x048 SizeOfStackReserve : Uint4B
+$$       +0x04c SizeOfStackCommit : Uint4B
+$$       +0x050 SizeOfHeapReserve : Uint4B
+$$       +0x054 SizeOfHeapCommit : Uint4B
+$$       +0x058 LoaderFlags      : Uint4B
+$$       +0x05c NumberOfRvaAndSizes : Uint4B
+$$       +0x060 DataDirectory    : [16] _IMAGE_DATA_DIRECTORY
+$$          +0x000 VirtualAddress   : Uint4B
+$$          +0x004 Size             : Uint4B
+$$ 0:000> dt -r IMAGE_SECTION_HEADER
+$$ IMAGE_SECTION_HEADER
+$$    +0x000 Name             : [8] UChar
+$$    +0x008 Misc             : _IMAGE_SECTION_HEADER::<unnamed-type-Misc>
+$$       +0x000 PhysicalAddress  : Uint4B
+$$       +0x000 VirtualSize      : Uint4B
+$$    +0x00c VirtualAddress   : Uint4B
+$$    +0x010 SizeOfRawData    : Uint4B
+$$    +0x014 PointerToRawData : Uint4B
+$$    +0x018 PointerToRelocations : Uint4B
+$$    +0x01c PointerToLinenumbers : Uint4B
+$$    +0x020 NumberOfRelocations : Uint2B
+$$    +0x022 NumberOfLinenumbers : Uint2B
+$$    +0x024 Characteristics  : Uint4B
+
+$$ 0:000> ? @@c++(sizeof(IMAGE_FILE_HEADER))
+$$ Evaluate expression: 20 = 00000014
+
+$$ Get image base
+aS /x IMG_BASE @@c++(@$peb->ImageBaseAddress);
+
+$$ Declare some user-named aliases that equate to UDPRs
+aS SEC_START     @$t5;
+aS SEC_END       @$t6;
+aS IMG_START     @$t7;
+aS IMG_END       @$t8;
+
+$$ Go to program entry point (not the original entry point, but the packed one)
+$$ only if no arguments were specified
+.if ${/d:$arg1} == 0
+{
+	g @$exentry;
+}
+
+.catch
+{
+	$$ Get pointer to NT headers
+	$$ IMAGE_DOS_HEADER    +0x03c e_lfanew         : Int4B
+	r $t0 = poi(${IMG_BASE} + 0x3C) + ${IMG_BASE};
+
+	$$ Now from the IMAGE_NT_HEADERS, get the size of optional header
+
+	$$ 0:000> dt -r IMAGE_NT_HEADERS
+	$$    +0x000 Signature        : Uint4B
+	$$    +0x004 FileHeader       : _IMAGE_FILE_HEADER
+	$$       +0x010 SizeOfOptionalHeader : Uint2B
+	r $t1 = wo(@$t0 + 4 + 0x10);
+
+	$$ Compute the address to the first section
+	$$ skip signature, size of file headers and size of optional headers
+	r $t2 = @$t0 + 4 + 0x14 + @$t1;
+
+	$$ Get first section boundaries
+
+	$$ IMAGE_SECTION_HEADER
+	$$    +0x008 Misc             : _IMAGE_SECTION_HEADER::<unnamed-type-Misc>
+	$$       +0x000 PhysicalAddress  : Uint4B
+	$$       +0x000 VirtualSize      : Uint4B
+	$$    +0x00c VirtualAddress   : Uint4B
+	r ${SEC_START} = IMG_BASE + poi(@$t2 + 0xC);
+	r ${SEC_END}   = IMG_BASE + poi(@$t2 + 0x8);
+
+	$$ Compute the image bounds
+	r ${IMG_START}     = IMG_BASE;
+	r ${IMG_END}       = IMG_START + poi(@$t0 + 0x18 + 0x38);
+
+	.printf "NTH=%p sz=%x sections=%p IMG_START=%p IMG_END=%p SEC_START=%p SEC_END=%p\n", @$t0, @$t1, @$t2, ${IMG_START}, ${IMG_END}, ${SEC_START}, ${SEC_END};
+
+	$$ The logic is as follows:
+	$$ 1. Trace
+	$$ 2. If IP is outside of image then "gu"
+	.for (r $t0=0; 1; r $t0 = @$t0 + 1)
+	{
+		$$ Trace once more to see where it leads
+		t;
+
+		$$ IP outside image boundaries?
+		.if (@$ip < ${IMG_START}) or (@$ip > ${IMG_END})
+		{
+			gu;
+			.continue;
+		}
+
+		$$ IP within the first section?
+		.if (@$ip >= ${SEC_START}) and (@$ip <= ${SEC_END})
+		{
+			.printf "--- Reach first section ---\n";
+			u;
+			.break;
+		}
+	}
+}

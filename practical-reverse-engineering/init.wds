@@ -1,0 +1,40 @@
+$$ Scripting system initialization script.
+$$ 
+$$ Run as soon as you launch the debugger (preferably with with -c switch)
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$
+$$ Input     : None
+$$ Uses      : permanently needs t19 and t18 UDPRs
+
+$$ Delete all aliases
+ad /q *;
+
+aS ${/v:SCRIPT_PATH} @"p:\book\scripts\";
+
+.block
+{
+	$$ Callable scripts (using @call)
+
+	aS ${/v:#sigma}             @"${SCRIPT_PATH}sigma";
+	aS ${/v:#pi}                @"${SCRIPT_PATH}pi";
+	aS ${/v:#test-call}         @"${SCRIPT_PATH}test-call";
+
+	$$ Script call aliases
+	aS ${/v:@q}                 @"$$>a<${SCRIPT_PATH}descramble.wds";
+	aS ${/v:@bp_displayfn}      @"$$>a<${SCRIPT_PATH}bp_displayfn.wds";
+	aS ${/v:@upx-unpack-quick}  @"$$>a<${SCRIPT_PATH}upx-unpack-quick.wds";
+	aS ${/v:@upx-unpack}        @"$$>a<${SCRIPT_PATH}upx-unpack.wds";
+	aS ${/v:@call}              @"$$>a<${SCRIPT_PATH}call.wds";
+	aS ${/v:@dvalloc}           @"$$>a<${SCRIPT_PATH}dvalloc.wds";
+	aS ${/v:@get-imgdatadir}    @"$$>a<${SCRIPT_PATH}get-imgdatadir.wds";
+	aS ${/v:@get-imgbase}       @"$$>a<${SCRIPT_PATH}get-imgbase.wds";
+}
+
+$$ t19 UDPR is used to keep track of the nesting level
+r $t19 = 0;
+
+$$ t18 UDPR is used to designate how many return values are returned starting from the t0 UDPR
+$$ The caller script may modify this value so it receives more than one return value if
+r $t18 = 1;

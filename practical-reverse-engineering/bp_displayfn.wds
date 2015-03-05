@@ -1,0 +1,87 @@
+$$ A script that can be used with x86 as a breakpoint condition to the display the file name parameter passed to APIs
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : ApiName bUnicode nFileNameArgIndex [ApiID]
+$$ Uses      : t0
+$$ Returns   : Displays result
+
+.catch
+{
+	.if ${/d:$arg1} == 0
+	{
+		.printf "Usage: bp_displayfn.wds init|APIName bUnicode FileNamePtrIndex [ApiId]";
+		.leave;
+	}
+
+	.if '${$arg1}' == 'init'
+	{
+		bp kernelbase!CreateFileA @"$$>a<${$arg0} CreateFileA 0 1 5";
+		bp kernelbase!CreateFileW @"$$>a<${$arg0} CreateFileW 1 1 5";
+		
+		bp kernelbase!DeleteFileA @"$$>a<${$arg0} DeleteFileW 0 1";
+		bp kernelbase!DeleteFileW @"$$>a<${$arg0} DeleteFileW 1 1";
+
+		bp kernelbase!FindFirstFileA @"$$>a<${$arg0} FindFirstFileA 0 1";
+		bp kernelbase!FindFirstFileW @"$$>a<${$arg0} FindFirstFileW 1 1";
+
+		bp kernel32!MoveFileA @"$$>a<${$arg0} MoveFileA 0 1";
+		bp kernel32!MoveFileW @"$$>a<${$arg0} MoveFileW 1 1";
+
+		bp kernelbase!GetFileAttributesA @"$$>a<${$arg0} GetFileAttributesA 0 1";
+
+		bp kernelbase!GetFileAttributesExA @"$$>a<${$arg0} GetFileAttributesExA 0 1";
+		bp kernelbase!GetFileAttributesExW @"$$>a<${$arg0} GetFileAttributesExW 1 1";
+
+		bp kernel32!CopyFileA @"$$>a<${$arg0} CopyFileA 0 1";
+		bp kernel32!CopyFileW @"$$>a<${$arg0} CopyFileW 1 1";
+
+		$$ Ignore some debug events (to lessen output pollution)
+		sxi ld;
+
+		$$ Display the list of the newly installed breakpoints
+		bl;
+
+		.leave;		
+	}
+
+	$$ Display API name
+	.printf "${$arg1}: >";
+
+	$$ Fetch the file name pointer
+	r $t0 = poi(@$csp + 4 * ${$arg3});
+
+	$$ Is it a unicode string pointer?
+	.if ${$arg2} == 1
+	{
+		.printf "%mu<\n", @$t0;
+	}
+	.else
+	{
+		$$ Display as ASCII SZ
+		.printf "%ma<\n", @$t0;
+	}
+
+	$$ ApiID parameter set?
+	.if ${/d:$arg4} == 1
+	{
+		$$ ID of CreateFile API?
+		.if ${$arg4} == 5
+		{
+			$$ Grab the name of the file so we compare it
+			aS /mu ${/v:FILE_NAME} @$t0;
+			.block
+			{
+				.if $sicmp(@"${FILE_NAME}", @"c:\temp\eb.txt") == 0
+				{
+					$$ Leave so that 'gc' does not execute
+					.leave;
+				}
+			}
+			ad /q ${/v:FILE_NAME};
+		}
+	}
+
+	$$ Continue after breakpoint
+	gc;
+}

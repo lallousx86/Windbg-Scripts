@@ -1,0 +1,40 @@
+$$ A sample script that uses pattern matching to unpack a UPXed program
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : None
+$$ Uses      : t0, t1
+$$ Returns   : Displays result
+
+$$ UPX unpack w/ pattern
+$$ UPX1:0107D7F5 39 C4                       cmp     esp, eax
+$$ UPX1:0107D7F7 75 FA                       jnz     short loc_107D7F3
+$$ UPX1:0107D7F9 83 EC 80                    sub     esp, -80h
+$$ UPX1:0107D7FC E9 61 24 FC+                jmp     near ptr word_103FC62
+
+$$ Go to program entry point (not the original entry point, but the packed one)
+$$ only if no arguments were specified
+.if ${/d:$arg1} == 0
+{
+	g @$exentry;
+}
+
+$$ Pattern not found!
+r $t0 = 0;
+.foreach (addr { s -[1]b @$ip L200 39 c4 75 fa 83 EC})
+{
+	$$ Pattern found!
+	r $t0 = 1;
+	r $t1 = ${addr} + 7;
+
+	.printf /D "The JMP to OEP @ <link cmd=\"u %x\">%x</link>\n", @$t1, @$t1;
+	ga @$t1;
+	t;
+	u;
+	.break;
+}
+
+.if $t0 == 0
+{
+	.printf "Could not find OEP jump pattern. Is the program packed by UPX?\n";
+}

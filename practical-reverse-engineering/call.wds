@@ -1,0 +1,66 @@
+$$ call.wds
+$$
+$$ Helper script that allows scripts to each other while seamlessly preserving UDPRs
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+
+ad /q ${/v:_tn_}
+
+.catch
+{
+	.if ${/d:$arg1} == 0
+	{
+		.printf "No script to call specified";
+		.leave;
+	}
+
+	$$ Compute the saved registers alias name of the previous call
+	aS /x ${/v:_tn_} @$t19;
+	.block
+	{
+		$$ Delete the saved registers alias name of the previous run
+		ad /q _sr_${_tn_};
+	}
+
+	$$ Increment the nesting level
+	r $t19 = @$t19 + 1;
+
+	$$ Compute the saved registers alias name for the current run
+	aS /x ${/v:_tn_} @$t19;
+
+	$$ Save all pseudo-registers
+	.block
+	{
+		aS /c _sr_${_tn_} "r $t0,$t1,$t2,$t3,$t4,$t5,$t6,$t7,$t8,$t9,$t10,$t11,$t12,$t13,$t14,$t15,$t16,$t17";
+	}
+
+	$$ Call the script
+	.catch
+	{
+		$$>a<"${$arg1}.wds" ${/f:$arg2} ${/f:$arg3} ${/f:$arg4} ${/f:$arg5} ${/f:$arg6} ${/f:$arg7} ${/f:$arg8} ${/f:$arg9} ${/f:$arg10} ${/f:$arg11} ${/f:$arg12} ${/f:$arg13} ${/f:$arg14} ${/f:$arg15} ${/f:$arg16} ${/f:$arg17} ${/f:$arg18} ${/f:$arg19} ${/f:$arg20};
+	}
+
+	$$ Restore the registers after calling
+	.block
+	{
+		$$ Compute the saved registers alias name
+		aS /x ${/v:_tn_} @$t19;
+
+		.block
+		{
+			$$ Restore all registers except the first ones that are due to return a value
+			.foreach /pS @$t18 /s (X "_sr_${_tn_}" ) 
+			{
+				r ${X};
+			}
+		}
+
+		$$ Delete the saved registers alias name
+		ad /q _sr_${_tn_};
+
+		$$ Decrease the nesting level
+		r $t19 = @$t19 - 1;
+	}
+}
+ad /q ${/v:_tn_}

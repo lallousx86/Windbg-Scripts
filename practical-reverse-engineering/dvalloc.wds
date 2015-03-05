@@ -1,0 +1,29 @@
+$$ A script that wraps the .dvalloc command
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : MemSize
+$$ Uses      : t0
+$$ Returns   : t0
+$$             t0 != -1 on success
+
+.catch
+{
+	r $t0 = -1; $$ Set invalid result
+	.if ${/d:$arg1} == 0
+	{
+		.printf "Usage: dvalloc.wds memory-size\n";
+		.printf "The allocated memory is returned in t0\n";
+		.leave;
+	}
+
+	$$ Allocate memory and set result into $t0
+	.foreach /pS 5 (t {.dvalloc ${$arg1}}) 
+	{
+		.if $vvalid(${t}, 1) == 1
+		{
+			r $t0 = ${t}; 
+			.leave; 
+		}	
+	}
+}

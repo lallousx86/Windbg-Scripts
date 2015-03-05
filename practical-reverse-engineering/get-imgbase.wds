@@ -1,0 +1,26 @@
+$$ A script that returns image base
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$ Input     : Image name
+$$ Uses      : t0
+$$ Returns   : t0
+$$             t0 != -1 on success
+
+.catch
+{
+	r $t0 = -1;
+
+    $$ Validate arguments
+    .if ${/d:$arg1} == 0
+    {
+        .printf "No image base name specified\n";
+        .leave;
+    }
+
+	.foreach /pS 4 ( imgbase { lmm ${$arg1}; } ) 
+	{
+		r @$t0 = ${imgbase}; 
+		.break;
+	}
+}

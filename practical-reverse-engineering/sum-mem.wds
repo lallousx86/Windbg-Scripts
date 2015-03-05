@@ -1,0 +1,27 @@
+$$
+$$ Script that sums bytes given a memory address and size
+$$
+$$ Written by Elias Bachaalany for "The Practical Reverse Engineering" book
+$$
+$$
+.catch
+{
+	.if @@c++(${/d:$arg1} == 0 || ${/d:$arg2} == 0)
+	{
+		.printf "Usage: ${$arg0} memory-address len\n";
+		.leave;
+	}
+	r $t0 = ${$arg1};
+	.if $vvalid($t0, 1) == 0
+	{
+		.printf "Invalid memory address specified\n";
+		.leave;
+	}
+	r $t1 = @$t0 + ${$arg2} - 1;
+	.printf "Summing memory bytes from %x to %x\n", @$t0, @$t1;
+	.for (r $t3=0;@$t0 <= $t1;r $t0 = $t1 +1)
+	{
+		r $t3 = $t3 + by(@$t1);
+	}
+	.printf "The result is %x\n", @$t3;
+}
